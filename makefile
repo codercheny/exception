@@ -23,16 +23,15 @@ TARGET   :=main
 LIBS     :=
 
 PATH_LIB :=
-PATH_INC :=
-PATH_SRC :=.
+PATH_INC :=include
+PATH_SRC :=$(shell ls -R | grep '^\./.*:$$' | awk '{gsub(":","");print}')
 PATH_OBJ :=obj/
 PATH_BIN :=
 
 CXX      :=g++
-CPPFLAGS :=-g -Wall -O3
-CPPFLAGS +=$(addprefix -I,$(PATH_INC))
-CPPFLAGS +=-MMD
-CPPFLAGS +=-std=c++11
+CXXFLAGS :=-g -Wall -O3
+CXXFLAGS +=$(addprefix -I,$(PATH_INC))
+CXXFLAGS +=-std=c++11
 
 RM :=rm -f
 
@@ -40,7 +39,6 @@ BINS :=$(addprefix $(PATH_BIN),$(TARGET))
 SRCS :=$(foreach n,$(PATH_SRC),$(wildcard $(addsuffix .cpp,$(n)/*))) 
 OBJS :=$(addprefix $(PATH_OBJ),$(addsuffix .o,$(basename $(notdir $(SRCS))))) 
 DEPS :=$(patsubst %.o,%.d,$(OBJS))
-DEPS_MISS :=$(filter-out $(wildcard $(DEPS)),$(DEPS))
 
 vpath %.h   $(PATH_INC)
 vpath %.cpp $(PATH_SRC)
@@ -54,14 +52,15 @@ $(PATH_BIN): ; -mkdir $(PATH_BIN)
 $(PATH_OBJ): ; -mkdir $(PATH_OBJ)
 
 $(PATH_OBJ)%.o: %.cpp
-	$(CXX) $(CPPFLAGS) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(PATH_OBJ)%.d: %.cpp
+	@set -e; rm -f $@; \
+	$(CXX) -MM $(CXXFLAGS) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,$(PATH_OBJ)\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
 
 -include $(DEPS)
-
-ifneq ($(DEPS_MISS),)
-$(DEPS_MISS):
-	@$(RM) $(patsubst %.d,%.o,$@)
-endif
 
 $(BINS): $(OBJS)
 	$(CXX) -o $(BINS) $(OBJS) $(addprefix -l,$(LIBS))
